@@ -32,12 +32,12 @@ class netflix
     const HTTP_1        = '1.1';
     const LINE_END      = "\r\n";
     
-    const DEBUG = true;
+    const DEBUG = false;
     
     //Array that should contain the consumer secret and
     //key which should be passed into the constructor.
-    private $_consumer = false;
-    private $_access = false;
+    private $_consumer = array();
+    private $_access = array();
     
     private $_header = array(
         'Host'=>self::HOST,
@@ -95,22 +95,22 @@ class netflix
 
         //Generate an array with the initial oauth values we need
         $auth = build_auth_array($baseurl, $this->_consumer['key'], $this->_consumer['secret'],
-                                 //array('oauth_callback'=>urlencode($callback)),
                                  array(),
                                  $this->_consumer['method'], $this->_consumer['algorithm']);
         //Create the "Authorization" portion of the header
-        $str = "";
+        $str = '';
         foreach($auth as $key => $value)
             $str .= ",{$key}=\"{$value}\"";
         $str = 'Authorization: OAuth '.substr($str, 1);
         //Send it
-        $response = $this->_connect($baseurl, $str);
+        $response = $this->_connect($baseurl, $str, 'GET');
+        
+        if(self::DEBUG)error_log($response);
         
         //We should get back a request token and secret which
         //we will add to the redirect url.
         parse_str($response, $resarray);
         
-        $callback = urlencode($callback);
         $resarray['application_name'] = urlencode($resarray['application_name']);
         
         //Return the full redirect url and let the user decide what to do from there
@@ -143,7 +143,7 @@ class netflix
         $auth = get_auth_header($baseurl, $this->_consumer['key'], $this->_consumer['secret'],
                                 $tokenddata, $this->_consumer['method'], $this->_consumer['algorithm']);
 
-        $response = $this->_connect($baseurl, $auth);
+        $response = $this->_connect($baseurl, $auth, 'GET');
         
         //Parse the response into an array it should contain
         //both the access token and the secret key. (You only
@@ -166,19 +166,35 @@ class netflix
         return $this->_response_request($uri);
     }
     
+    /**
+     * Search for a title
+     *
+     * @param string $title the name of the title to search for
+     * @param array $params (optional) Additional parameters. See the netflix API reference for details
+     **/
     public function search_title($title, array $params = array())
     {
-        $title = urlencode($title);
+        $title = rawurlencode($title);
         $parstr = empty($params) ? '' : '&'.http_build_query($params);
         return $this->_response_request("catalog/titles?term={$title}{$parstr}");
     }
     
+    /**
+     * Search for autocomplete results for a title
+     *
+     * @param string $title the name of the title to search for
+     **/
     public function search_title_autocomplete($title)
     {
-        $title = urlencode($title);
+        $title = rawurlencode($title);
         return $this->_response_request("catalog/titles/autocomplete?term={$title}");
     }
     
+    /**
+     * Retrieve a complete index of all instant-watch titles in the Netflix catalog
+     *
+     * @param array $params (optional) Additional parameters. See the netflix API reference for details
+     **/
     public function all_titles(array $params = array())
     {
         $parstr = empty($params) ? '' : '?'.http_build_query($params);
@@ -188,56 +204,73 @@ class netflix
         return $response;
     }
     
-    public function get_movie_details($id)
+    /**
+     * Retrieve details for specific instant-watch title
+     *
+     * @param string $id The id of the title to search for.
+     * @param string $type The type of the title (either 'movies', 'series', or 'programs')
+     * @param mixed $season (optional) Specify a particular season number of a series or false.
+     **/
+    public function get_title_details($id, $type, $season = false)
     {
-        return $this->_response_request("catalog/titles/movies/{$id}");
+        $seasonstr = $season === false ? '' : "/season/{$season}";
+        return $this->_response_request("catalog/titles/{$type}/{$id}{$seasonstr}");
     }
     
-    public function get_movie_similars($id, array $params = array())
+    /**
+     * Retrieve a list of movie titles similar to a particular title.
+     *
+     * @param string $id The id of the title to search for.
+     * @param string $type The type of the title (either 'movies', 'series', or 'programs')
+     * @param mixed $season (optional) Specify a particular season number of a series or false.
+     * @param array $params (optional) Additional parameters. See the netflix API reference for details
+     **/
+    public function get_title_similars($id, $type, $season = false, array $params = array())
     {
+        $seasonstr = $season === false ? '' : "/season/{$season}";
         $parstr = empty($params) ? '' : '?'.http_build_query($params);
-        return $this->_response_request("catalog/titles/movies/{$id}/similars{$parstr}");
+        return $this->_response_request("catalog/titles/{$type}/{$id}/similars{$seasonstr}{$parstr}");
     }
     
-    public function get_series_details($id, $season = false)
-    {
-        return $this->_response_request($season === false ? "catalog/titles/series/{$id}" : "catalog/titles/series/{$id}/seasons/{$season}");
-    }
-    
-    public function get_series_similars($id, $season = false, array $params = array())
-    {
-        $parstr = empty($params) ? '' : '?'.http_build_query($params);
-        return $this->_response_request(($season === false ? "catalog/titles/series/{$id}" : "catalog/titles/series/{$id}/seasons/{$season}").$parstr);
-    }
-    
-    public function get_program_details($id)
-    {
-        return $this->_response_request("catalog/titles/programs/{$id}");
-    }
-    
-    public function get_program_similars($id, array $params = array())
-    {
-        $parstr = empty($params) ? '' : '?'.http_build_query($params);
-        return $this->_response_request("catalog/titles/programs/{$id}/similars{$parstr}");
-    }
-    
+    /**
+     * Search for people in the catalog by their name or a portion of their name.
+     *
+     * @param string $name The full or partial name to search for.
+     * @param array $params (optional) Additional parameters. See the netflix API reference for details
+     **/
     public function search_people($name, array $params = array())
     {
-        $title = urlencode($title);
+        $name = rawurlencode($name);
         $parstr = empty($params) ? '' : '&'.http_build_query($params);
         return $this->_response_request("catalog/people?term={$name}{$parstr}");
     }
     
+    /**
+     * Retrieve detailed information about a person in the Catalog
+     *
+     * @param string $id The id of the person to search for
+     **/
     public function get_person_details($id)
     {
         return $this->_response_request("catalog/people/{$id}");
     }
     
+    /**
+     * Retrieve detailed information about a User
+     *
+     * @param string $id (optional) The user id of the user.
+     **/
     public function get_user($id = 'current')
     {
         return $this->_response_request("users/{$id}");
     }
     
+    /**
+     * Retrieve a list of subscriber feeds.
+     *
+     * @param string $id The user id of the user in question.
+     * @param array $params (optional) Additional parameters. See the netflix API reference for details
+     **/
     public function get_user_feeds($id, array $params = array())
     {
         $parstr = empty($params) ? '' : '?'.http_build_query($params);
@@ -413,7 +446,7 @@ class netflix
             if(array_key_exists($key, $overwrite))$str .= $key.': '.$overwrite[$key].self::LINE_END;
             else $str .= $key.': '.$value.self::LINE_END;
         }
-        if($this->_access !== false && $url !== false)$str .= get_auth_header($url, $this->_consumer['key'], $this->_consumer['secret'], $this->_access, $method, $this->_consumer['algorithm']);
+        $str .= get_auth_header($url, $this->_consumer['key'], $this->_consumer['secret'], $this->_access, $method, $this->_consumer['algorithm']);
         $str .= $append === false ? '' : $append;
 
         return $str;
@@ -422,7 +455,6 @@ class netflix
     private function _connect($url, $header, $request, $postdata = false)
     {
         $ch = curl_init($url);
-        //TODO Test that having ssl encryption is OK for request and authorization
         curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC ) ;
         curl_setopt($ch, CURLOPT_SSLVERSION,3);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);

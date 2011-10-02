@@ -35,13 +35,23 @@ class Example extends CI_Controller
 		$this->session->set_userdata('oauth_token_secret', $oauth['oauth_token_secret']);
 	}
 	
-	public function test_netflix($action = 'add')
+	public function netflix_no_auth()
+	{
+		$params['key'] = 'NETFLIX CONSUMER KEY';
+		$params['secret'] = 'NETFLIX CONSUMER SECRET';
+		$this->load->library('netflix', $params);
+		
+		echo $this->netflix->search_title('Jurassic Park');
+	}
+	
+	public function netflix_auth()
 	{
 		$params['key'] = 'NETFLIX CONSUMER KEY';
 		$params['secret'] = 'NETFLIX CONSUMER SECRET';
 		$params['access'] = array('oauth_token'=>urlencode($this->session->userdata('oauth_token')),
 								  'oauth_token_secret'=>urlencode($this->session->userdata('oauth_token_secret')));
 		$this->load->library('netflix', $params);
+		
 		echo $this->netflix->get_user();
 	}
 }

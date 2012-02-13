@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-class netflix
+class Netflix
 {
     const SCHEME        = 'http';
     const HOST          = 'api.netflix.com';

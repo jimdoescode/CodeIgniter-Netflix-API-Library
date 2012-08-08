@@ -198,9 +198,11 @@ class Netflix
     public function all_titles(array $params = array())
     {
         $parstr = empty($params) ? '' : '?'.http_build_query($params);
-        $this->_header['Accept-Encoding'] = 'gzip';
+        //Request that the response be gzipped because it will be massive
+        $this->_header['Accept-encoding'] = 'gzip';
         $response = $this->_response_request("catalog/titles/index{$parstr}");
-        unset($this->_header['Accept-Encoding']);
+        //Reset the encoding for normal use.
+        $this->_header['Accept-encoding'] = 'identity';
         return $response;
     }
     
